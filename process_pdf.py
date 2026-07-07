@@ -113,15 +113,23 @@ def main():
         # Redact the old text using original tight bounding box
         for span in red_spans:
             rect = fitz.Rect(span["bbox"])
-            # Redact using white fill to cover old text
-            page.add_redact_annot(rect, fill=(1, 1, 1))
+            # Redact the text without drawing a colored fill (keeps background/dotted lines intact)
+            page.add_redact_annot(rect)
             
-        # Apply redactions FIRST before rendering new text
-        page.apply_redactions(images=0)
+        # Apply redactions FIRST before rendering new text (graphics=0 keeps dotted lines intact)
+        page.apply_redactions(images=0, graphics=0)
         
         # Insert the new text with the custom font using insert_htmlbox (with HarfBuzz complex shaping)
         for span in red_spans:
             rect = fitz.Rect(span["bbox"])
+            size = span["size"]
+            
+            # Redraw dots in black to restore the dotted line deleted by redaction
+            w = rect.x1 - rect.x0
+            dot_width = size * 0.22
+            num_dots = int(w / dot_width)
+            dots_text = "." * num_dots
+            page.insert_text(fitz.Point(rect.x0, rect.y1 - 2), dots_text, fontsize=size, fontname="helv", color=(0, 0, 0))
             
             # Expand the rect vertically to prevent vertical clipping of Thai tone marks and vowels
             rect.y0 -= 3
